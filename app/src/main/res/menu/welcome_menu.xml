@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/welcome_bus_list"
+        android:icon="@drawable/ic_bus_list"
+        android:visible="true"
+        app:showAsAction="always"
+        android:title="Edit Bus list" />
+    <item
+        android:id="@+id/welcome_about"
+        android:title="About"/>
+
+</menu>

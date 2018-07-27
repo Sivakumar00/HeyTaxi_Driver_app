@@ -5,13 +5,19 @@
         xmlns:app="http://schemas.android.com/apk/res-auto"
         xmlns:map="http://schemas.android.com/apk/res-auto"
         xmlns:tools="http://schemas.android.com/tools"
+        android:background="@android:color/transparent"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
+
+        <include layout="@layout/app_bar_layout"
+            android:id="@+id/welcome_toolbar"/>
         <LinearLayout
             android:id="@+id/layout_panel"
             android:orientation="horizontal"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:layout_below="@+id/welcome_toolbar">
          <!--   <EditText
                 android:id="@+id/edtPlace"
                 android:layout_weight="5"
@@ -24,7 +30,7 @@
                 android:id="@+id/places_autocomplete_fragment"
                 android:name="com.google.android.gms.location.places.ui.PlaceAutocompleteFragment"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="20dp"
                 android:layout_margin="10dp"
                 android:layout_weight="5"/>
            <!-- <ImageButton
@@ -55,6 +61,7 @@
                android:orientation="horizontal"
                android:weightSum="10"
                android:layout_margin="16dp"
+               android:layout_gravity="center_vertical"
                android:layout_width="match_parent"
                android:layout_height="wrap_content">
 
@@ -62,8 +69,7 @@
                    android:id="@+id/location_switch"
                    android:layout_width="0dp"
                    android:layout_height="wrap_content"
-
-                   android:layout_marginTop="10dp"
+                    android:layout_gravity="center_vertical"
                    android:layout_weight="3"
                    app:ball_press_color="@color/basePressColor"
                    app:ball_release_color="@color/ballReleaseColor"
@@ -71,21 +77,34 @@
                    app:base_release_color="@color/baseReleaseColor"
                    app:icon_press="@drawable/ic_location_on"
                    app:icon_release="@drawable/ic_location_off" />
-
-               <Button
-                   android:id="@+id/btn_find_user"
-                   android:layout_weight="7"
-                   android:text="FIND USER"
-                   android:layout_width="0dp"
-                   android:layout_height="wrap_content" />
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <TextView
+                        android:id="@+id/accuracy"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:text="Location Accuracy :"
+                        android:layout_marginLeft="40dp"/>
+                    <TextView
+                        android:id="@+id/meters"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:text="Deflected Meters :"
+                        android:layout_marginLeft="40dp"/>
+                </LinearLayout>
 
                <ImageButton
                    android:id="@+id/btn_logout"
-                   android:layout_width="30dp"
-                   android:layout_height="30dp"
-                   android:layout_marginLeft="20dp"
-                   android:layout_marginStart="10dp"
-                   android:layout_marginTop="10dp"
+                   android:layout_width="0dp"
+                   android:layout_height="wrap_content"
+                    android:layout_marginLeft="260dp"
+                   android:layout_gravity="center_vertical"
+                   android:layout_weight="5"
+                   android:layout_marginRight="20dp"
                    android:background="#ffffff"
                    android:paddingStart="0dp"
                    android:src="@drawable/ic_logout" />

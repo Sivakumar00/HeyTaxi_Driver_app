@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.siva.BusListActivity">
+    <include
+        android:id="@+id/bus_list_toolbar"
+        layout="@layout/app_bar_layout"/>
+
+    <EditText
+        android:id="@+id/bus_no"
+        android:layout_width="match_parent"
+        android:layout_margin="20dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/bus_list_toolbar"
+        android:layout_centerHorizontal="true"
+        android:ems="10"
+        android:inputType="number"
+        android:hint="Bus Number" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="20dp"
+        android:id="@+id/linear1"
+        android:layout_below="@+id/bus_no"
+        android:orientation="horizontal">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" From "
+            android:textSize="19dp"
+            android:textColor="@android:color/black"
+            android:layout_gravity="center_vertical"
+            android:layout_marginRight="40dp"
+            />
+        <Spinner
+            android:id="@+id/spinner_from"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            />
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="20dp"
+        android:id="@+id/linear2"
+        android:layout_below="@+id/linear1"
+        android:orientation="horizontal">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" To "
+            android:textColor="@android:color/black"
+            android:textSize="19dp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginRight="40dp"
+            />
+        <Spinner
+            android:id="@+id/spinner_to"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="25dp"
+            />
+    </LinearLayout>
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/submit_busList"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="30dp"
+        android:text="Submit"
+        android:background="@color/colorPrimary"
+        android:textColor="@android:color/white"
+        android:textSize="15dp"/>
+</RelativeLayout>

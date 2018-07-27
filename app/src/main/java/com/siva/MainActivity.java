@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.RelativeLayout;
 
@@ -45,27 +46,27 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        CalligraphyConfig.initDefault(new CalligraphyConfig.Builder().setDefaultFontPath("fonts/Arkhip_font.ttf").setFontAttrId(R.attr.fontPath).build());
+
         setContentView(R.layout.activity_main);
         //init view
         btnRegister=(Button)findViewById(R.id.btnRegister);
         btnSignIn=(Button)findViewById(R.id.btnSignIn);
         rootLayout=(RelativeLayout)findViewById(R.id.rootLayout);
         ProgressDialog pDialog=new ProgressDialog(getApplicationContext());
-        //Paper.init(this);
+        Paper.init(this);
         //firebase init
         auth=FirebaseAuth.getInstance();
         db=FirebaseDatabase.getInstance();
         users=FirebaseDatabase.getInstance().getReference().child("Users");
         drivers=FirebaseDatabase.getInstance().getReference().child(Common.user_driver_tbl);
-      //  String user=Paper.book().read(Common.user_field);
-       // String pwd=Paper.book().read(Common.pwd_field);
-        //if(user!=null&& pwd!=null)
-        //{
-         //   if(!TextUtils.isEmpty(user)&&!TextUtils.isEmpty(pwd)){
-           //     autoLogin(user,pwd);
-            //}
-       // }
+        String user=Paper.book().read(Common.user_field);
+        String pwd=Paper.book().read(Common.pwd_field);
+        if(user!=null&& pwd!=null)
+        {
+            if(!TextUtils.isEmpty(user)&&!TextUtils.isEmpty(pwd)){
+               autoLogin(user,pwd);
+            }
+        }
         //onclick
         btnRegister.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -87,9 +88,11 @@ public class MainActivity extends AppCompatActivity {
         auth.signInWithEmailAndPassword(user,pwd).addOnSuccessListener(new OnSuccessListener<AuthResult>() {
             @Override
             public void onSuccess(AuthResult authResult) {
-                waitingDialog.dismiss();
+
                 startActivity(new Intent(MainActivity.this,Welcome.class));
+                waitingDialog.dismiss();
                 finish();
+
             }
         }).addOnFailureListener(new OnFailureListener() {
             @Override
@@ -143,8 +146,8 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onSuccess(AuthResult authResult) {
                         waitingDialog.dismiss();
-//                        Paper.book().write(Common.user_field,edtEmail.getText().toString());
-  //                      Paper.book().write(Common.pwd_field,edtPassword.getText().toString());
+                       Paper.book().write(Common.user_field,edtEmail.getText().toString());
+                        Paper.book().write(Common.pwd_field,edtPassword.getText().toString());
                      startActivity(new Intent(MainActivity.this,Welcome.class));
                         finish();
                     }

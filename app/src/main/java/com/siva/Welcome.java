@@ -2,21 +2,35 @@ package com.siva;
 
 import android.Manifest;
 import android.animation.ValueAnimator;
+import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.StringRes;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.animation.Interpolator;
@@ -24,6 +38,8 @@ import android.view.animation.LinearInterpolator;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.SpinnerAdapter;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.firebase.geofire.GeoFire;
@@ -39,6 +55,7 @@ import com.google.android.gms.fitness.data.Value;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.places.AutocompleteFilter;
 import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.ui.PlaceAutocomplete;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
@@ -64,6 +81,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.siva.Common.Common;
+import com.siva.Helper.DirectionJSONParser;
 import com.siva.Remote.IGoogleAPI;
 
 import org.json.JSONArray;
@@ -73,6 +91,7 @@ import org.json.JSONObject;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -81,30 +100,31 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class Welcome extends FragmentActivity implements OnMapReadyCallback,GoogleApiClient.ConnectionCallbacks,
+public class Welcome extends AppCompatActivity implements OnMapReadyCallback,GoogleApiClient.ConnectionCallbacks,
             GoogleApiClient.OnConnectionFailedListener,LocationListener
 {
 
     private GoogleMap mMap;
     //payservices
+    TextView accuracy,meters;
     private static final int MY_PERMISSION_REQUEST_CODE=7000;
     private static final int PLAY_SERVICES_RES_REQUEST=7001;
-
+    ActionBar actionBar;
     private LocationRequest mLocationRequest;
     private GoogleApiClient mGoogleApiClient;
     private Location mLastLocation;
-
+    private Menu menu;
     private static int UPDATE_INTERVAL=5000;
     private static int FASTEST_INTERVAL=3000;
     private static int DISPLACEMENT=10;
-
+    private Toolbar mToolbar;
     DatabaseReference drivers;
     GeoFire geoFire;
     Marker mCurrent;
     MaterialAnimatedSwitch location_switch;
     SupportMapFragment mapFragment;
     FirebaseAuth mAuth;
-
+    private Polyline direction;
     //car animation variables
     private List<LatLng> polyLineList;
     private Marker carMarker;
@@ -184,7 +204,8 @@ public class Welcome extends FragmentActivity implements OnMapReadyCallback,Goog
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
 
         final LocationManager manager = (LocationManager) getSystemService( Context.LOCATION_SERVICE );
-
+        accuracy=(TextView)findViewById(R.id.accuracy);
+        meters=(TextView)findViewById(R.id.meters);
 
          mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -193,12 +214,20 @@ public class Welcome extends FragmentActivity implements OnMapReadyCallback,Goog
             Snackbar.make(mapFragment.getView(),"Turn ON GPS Location..",Snackbar.LENGTH_LONG).show();
         }
 
-
+        mToolbar=(Toolbar)findViewById(R.id.welcome_toolbar);
+        setSupportActionBar(mToolbar);
+        getSupportActionBar().setTitle("Where is my Bus?");
         //init
+        drivers= FirebaseDatabase.getInstance().getReference("Drivers");
+        geoFire=new GeoFire(drivers);
 
         mAuth=FirebaseAuth.getInstance();
+        Paper.init(this);
 
         places=(PlaceAutocompleteFragment)getFragmentManager().findFragmentById(R.id.places_autocomplete_fragment);
+        places.setBoundsBias(new LatLngBounds(
+                new LatLng(10.62267107, 78.5621312),
+                new LatLng(10.9111352,78.90625977)));
         places.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
@@ -231,44 +260,38 @@ public class Welcome extends FragmentActivity implements OnMapReadyCallback,Goog
                 if(isOnline){
                    // turnOnGPS();
                     startLocationUpdates();
+                    accuracy.setVisibility(View.VISIBLE);
+                    meters.setVisibility(View.VISIBLE);
+                    getAccuracyLocation();
                     displayLocation();
-                    Snackbar.make(mapFragment.getView(),"You are Online..!",Snackbar.LENGTH_SHORT).show();
-                }else {
-                    stopLocationUpdates();
-                    mCurrent.remove();
-                    mMap.clear();
-                    handler.removeCallbacks(drawPathRunnable);
-                    Snackbar.make(mapFragment.getView(),"You are Offline..!",Snackbar.LENGTH_SHORT).show();
 
+                    Snackbar.make(mapFragment.getView(),"Driver Mode ON..!",Snackbar.LENGTH_SHORT).show();
+                }else {
+                    if(carMarker!=null) {
+                        stopLocationUpdates();
+                        geoFire.removeLocation(FirebaseAuth.getInstance().getCurrentUser().getUid());
+                        carMarker.remove();
+                        mMap.clear();
+                        accuracy.setVisibility(View.INVISIBLE);
+                        meters.setVisibility(View.INVISIBLE);
+                        handler.removeCallbacks(drawPathRunnable);
+                        Snackbar.make(mapFragment.getView(), "Driver Mode OFF..!", Snackbar.LENGTH_SHORT).show();
+                    }
                 }
             }
         });
 
         polyLineList =new ArrayList<>();
-      /*  btnGo=(ImageButton)findViewById(R.id.btnGo);
-        edtPlace=(EditText)findViewById(R.id.edtPlace);
-        btnGo.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                destination=edtPlace.getText().toString();
-                destination=destination.replace(" ","+");
-                Log.d("DESTINATION",destination);
-                getDirection();
-            }
-        });*/
-        //geofire
-        drivers= FirebaseDatabase.getInstance().getReference("Drivers");
-        geoFire=new GeoFire(drivers);
-        setUpLocation();
 
+        //geofire
+
+        setUpLocation();
         mService= Common.getGoogleAPI();
 
 
     }
 
-
-
-    //google docs
+   //google docs
     private void getDirection() {
         currentPosition=new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude());
         String requestApi=null;
@@ -283,71 +306,15 @@ public class Welcome extends FragmentActivity implements OnMapReadyCallback,Goog
                  public void onResponse(Call<String> call, Response<String> response) {
 
                     try {
-                        JSONObject jsonObject=new JSONObject(response.body().toString());
-                        JSONArray jsonArray=jsonObject.getJSONArray("routes");
-                        for( int i=0;i<jsonArray.length();i++){
-                            JSONObject route=jsonArray.getJSONObject(i);
-                            JSONObject poly=route.getJSONObject("overview_polyline");
-                            String polyline=poly.getString("points");
-                            polyLineList=decodePoly(polyline);
-                        }
-                        //adjusting bounds.source: google docs +stack overflow
-                        LatLngBounds.Builder builder=new LatLngBounds.Builder();
-                        for (LatLng latlng:polyLineList){
-                            builder.include(latlng);
-                        }
-                        LatLngBounds bounds=builder.build();
-                        CameraUpdate mCameraUpdate=CameraUpdateFactory.newLatLngBounds(bounds,2);
-                        mMap.animateCamera(mCameraUpdate);
-                        polylineOptions=new PolylineOptions();
-                        polylineOptions.color(Color.GRAY);
-                        polylineOptions.width(5);
-                        polylineOptions.startCap(new SquareCap());
-                        polylineOptions.endCap(new SquareCap());
-                        polylineOptions.jointType(JointType.ROUND);
-                        polylineOptions.addAll(polyLineList);
-                        greyPolyline=mMap.addPolyline(polylineOptions);
+                        new Welcome.ParserTask().execute(response.body().toString());
 
-                       blackPolylineOptions=new PolylineOptions();
-                        blackPolylineOptions.color(Color.BLACK);
-                        blackPolylineOptions.width(5);
-                        blackPolylineOptions.startCap(new SquareCap());
-                        blackPolylineOptions.endCap(new SquareCap());
-                        blackPolylineOptions.jointType(JointType.ROUND);
-                        blackPolyLine=mMap.addPolyline(blackPolylineOptions);
-
-                        mMap.addMarker(new MarkerOptions().position(polyLineList.get(polyLineList.size()-1))
-                                                    .title("PickUp Location"));
-
-                        //Animation
-                        ValueAnimator polyLineAnimator=ValueAnimator.ofInt(0,100);
-                        polyLineAnimator.setDuration(2000);
-                        polyLineAnimator.setInterpolator(new LinearInterpolator());
-                        polyLineAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                            @Override
-                            public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                                List<LatLng> points=greyPolyline.getPoints();
-                                int percentValue=(int)valueAnimator.getAnimatedValue();
-                                int size=points.size();
-                                int newPoints=(int)(size*(percentValue/100.0f));
-                                List<LatLng> p=points.subList(0,newPoints);
-                                blackPolyLine.setPoints(p);
-
-                            }
-                        });
-                        polyLineAnimator.start();
-
-                        carMarker=mMap.addMarker(new MarkerOptions().position(currentPosition).flat(true)
-                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
-
-                        handler=new Handler();
-                         index=-1;
-                        next=1;
-                        handler.postDelayed(drawPathRunnable,3000);
-
-                    } catch (JSONException e) {
+                    } catch (Exception e) {
                         e.printStackTrace();
                     }
+
+
+
+
                 }
 
                 @Override
@@ -410,6 +377,31 @@ public class Welcome extends FragmentActivity implements OnMapReadyCallback,Goog
         startActivity(intent);
 
         finish();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        geoFire.removeLocation(FirebaseAuth.getInstance().getCurrentUser().getUid());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        displayLocation();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        geoFire.removeLocation(FirebaseAuth.getInstance().getCurrentUser().getUid());
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        geoFire.removeLocation(FirebaseAuth.getInstance().getCurrentUser().getUid());
     }
 
     private void setUpLocation() {
@@ -500,19 +492,23 @@ public class Welcome extends FragmentActivity implements OnMapReadyCallback,Goog
                 final double longitude=mLastLocation.getLongitude();
 
                 //update to Firebase
+
                 geoFire.setLocation(FirebaseAuth.getInstance().getCurrentUser().getUid(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
                     @Override
                     public void onComplete(String key, DatabaseError error) {
                         //Add marker
-                        if(mCurrent!=null){
-                            mCurrent.remove();
+                        if(carMarker!=null){
+                            carMarker.remove();
                         }
-                        mCurrent=mMap.addMarker(new MarkerOptions()
 
-                        .position(new LatLng(latitude,longitude))
-                        .title("Your Location"));
-                        //move view to position
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude,longitude),15.0f));
+
+                                carMarker = mMap.addMarker(new MarkerOptions()
+                                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bus))
+                                        .position(new LatLng(latitude, longitude))
+                                        .title("Your Location"));
+                                //move view to position
+                        getAccuracyLocation();
+                                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), 15.0f));
 
 
 
@@ -526,7 +522,34 @@ public class Welcome extends FragmentActivity implements OnMapReadyCallback,Goog
 
 
     }
+    private void getAccuracyLocation(){
+        int i=(int)mLastLocation.getAccuracy();
+        if(i<10){
+            accuracy.setText("Location Accuracy : Very Good");
+            accuracy.setTextColor(Color.rgb(127,255,0));
+            meters.setText("Deflected Rate :"+i);
+            meters.setTextColor(Color.rgb(127,255,0));
+        }
+        if(i>10 && i <150){
+            accuracy.setText("Location Accuracy : Good");
+            accuracy.setTextColor(Color.rgb(0,128,0));
+            meters.setText("Deflected Rate :"+i);
+            meters.setTextColor(Color.rgb(0,128,0));
+        }
+        if( i >=150&&i<600){
+            accuracy.setText("Location Accuracy : Medium");
+            accuracy.setTextColor(Color.rgb(255,140,0));
+            meters.setText("Deflected Rate :"+i);
+            meters.setTextColor(Color.rgb(255,140,0));
+        }
+        if( i >300){
+            accuracy.setText("Location Accuracy : Poor");
+            accuracy.setTextColor(Color.RED);
+            meters.setText("Deflected Rate :"+i);
+            meters.setTextColor(Color.RED);
+        }
 
+    }
     private void rotateMarker(final Marker mCurrent, final float i, GoogleMap mMap) {
         final Handler handler=new Handler();
         final long start= SystemClock.uptimeMillis();
@@ -587,7 +610,7 @@ public class Welcome extends FragmentActivity implements OnMapReadyCallback,Goog
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-
+        geoFire.removeLocation(FirebaseAuth.getInstance().getCurrentUser().getUid());
     }
 
     @Override
@@ -595,4 +618,96 @@ public class Welcome extends FragmentActivity implements OnMapReadyCallback,Goog
         mLastLocation=location;
         displayLocation();
     }
+    private class ParserTask extends AsyncTask<String,Integer,List<List<HashMap<String,String>>>> {
+
+        ProgressDialog dialog=new ProgressDialog(Welcome.this);
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            dialog.setMessage("Please wait..");
+            dialog.show();
+        }
+
+        @Override
+        protected List<List<HashMap<String, String>>> doInBackground(String... strings) {
+            JSONObject jObject;
+            List<List<HashMap<String, String>>> routes=null;
+            try {
+                jObject=new JSONObject(strings[0]);
+                DirectionJSONParser parser=new DirectionJSONParser();// google la iruku...
+                routes=parser.parse(jObject);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            return routes;
+        }
+
+        @Override
+        protected void onPostExecute(List<List<HashMap<String, String>>> lists) {
+            dialog.dismiss();
+            ArrayList points=null;
+            PolylineOptions polylineOptions=null;
+
+            for (int i=0;i<lists.size();i++){
+                points=new ArrayList();
+                polylineOptions=new PolylineOptions();
+
+                List<HashMap<String,String>> path=lists.get(i);
+                for (int j=0;j<path.size();j++){
+                    HashMap<String,String> point =path.get(j);
+                    double lat=Double.parseDouble(point.get("lat"));
+                    double lng=Double.parseDouble(point.get("lng"));
+
+                    LatLng position=new LatLng(lat,lng);
+                    points.add(position);
+
+                }
+                polylineOptions.addAll(points);
+
+                polylineOptions.width(10);
+                polylineOptions.color(Color.BLUE);
+                polylineOptions.geodesic(true);
+
+            }
+            if(points.size()!=0)
+               if(direction==null) {
+                   direction = mMap.addPolyline(polylineOptions);
+               }
+            if(direction!=null){
+                direction.remove();
+                direction=mMap.addPolyline(polylineOptions);
+            }
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        super.onCreateOptionsMenu(menu);
+        this.menu=menu;
+        getMenuInflater().inflate(R.menu.welcome_menu, menu);
+        return true;
+    }
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        super.onOptionsItemSelected(item);
+
+
+        if (item.getItemId() == R.id.welcome_about){
+            /*Intent intent1 = new Intent(getApplicationContext(), AboutActivity.class);
+            intent1.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent1);
+            */
+        }
+        if(item.getItemId()==R.id.welcome_bus_list) {
+            Intent intent = new Intent(getApplicationContext(), BusListActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+
+        }
+
+
+        return true;
+    }
+
 }

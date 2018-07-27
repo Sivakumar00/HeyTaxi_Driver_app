@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">EMS Ambulance</string>
+    <string name="app_name">Where is my Bus?</string>
     <string name="title_activity_welcome">Map</string>
     <string name="google_direction_api">AIzaSyAspyW7hLIHrmGZnWMi2eniH_kG1kthGIM</string>
     <string name="title_activity_driver_tracking">Map</string>
